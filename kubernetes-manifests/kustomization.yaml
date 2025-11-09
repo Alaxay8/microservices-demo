@@ -21,6 +21,8 @@ resources:
  - currencyservice.yaml
  - emailservice.yaml
  - frontend.yaml
+ - kafka.yaml
+ - orders-event-service.yaml
 # - loadgenerator.yaml # During development, the loadgenerator module inside skaffold.yaml will be used.
  - paymentservice.yaml
  - productcatalogservice.yaml

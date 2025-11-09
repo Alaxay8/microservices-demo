@@ -15,10 +15,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/profiler"
@@ -81,6 +85,32 @@ type checkoutService struct {
 
 	paymentSvcAddr string
 	paymentSvcConn *grpc.ClientConn
+
+	orderEventsPublisher *kafkaRestPublisher
+}
+
+type kafkaRestPublisher struct {
+	client    *http.Client
+	targetURL string
+}
+
+func (p *kafkaRestPublisher) Publish(ctx context.Context, payload []byte) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.targetURL, bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/vnd.kafka.json.v2+json")
+	req.Header.Set("Accept", "application/vnd.kafka.v2+json")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("kafka rest proxy returned status %s", resp.Status)
+	}
+	return nil
 }
 
 func main() {
@@ -119,6 +149,23 @@ func main() {
 	mustConnGRPC(ctx, &svc.currencySvcConn, svc.currencySvcAddr)
 	mustConnGRPC(ctx, &svc.emailSvcConn, svc.emailSvcAddr)
 	mustConnGRPC(ctx, &svc.paymentSvcConn, svc.paymentSvcAddr)
+
+if restURL := os.Getenv("ORDER_EVENTS_REST_URL"); restURL != "" {
+		topic := os.Getenv("ORDER_EVENTS_TOPIC")
+		if topic == "" {
+			log.Fatal("ORDER_EVENTS_TOPIC must be set when ORDER_EVENTS_REST_URL is provided")
+		}
+
+		trimmed := strings.TrimSuffix(restURL, "/")
+		targetURL := fmt.Sprintf("%s/topics/%s", trimmed, topic)
+		svc.orderEventsPublisher = &kafkaRestPublisher{
+			client: &http.Client{
+				Timeout: 10 * time.Second,
+			},
+			targetURL: targetURL,
+		}
+		log.Infof("configured Kafka REST publisher for topic %q", topic)
+	}
 
 	log.Infof("service config: %+v", svc)
 
@@ -274,8 +321,72 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	} else {
 		log.Infof("order confirmation email sent to %q", req.Email)
 	}
+
+cs.publishOrderEvent(ctx, req, orderResult, &total)
+
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
 	return resp, nil
+}
+
+func (cs *checkoutService) publishOrderEvent(ctx context.Context, req *pb.PlaceOrderRequest, order *pb.OrderResult, total *pb.Money) {
+	if cs.orderEventsPublisher == nil {
+		return
+	}
+
+	type orderItemEvent struct {
+		ProductId string `json:"product_id"`
+		Quantity  int32  `json:"quantity"`
+		Currency  string `json:"currency"`
+		Units     int64  `json:"units"`
+		Nanos     int32  `json:"nanos"`
+	}
+
+	var items []orderItemEvent
+	for _, item := range order.Items {
+		items = append(items, orderItemEvent{
+			ProductId: item.GetItem().GetProductId(),
+			Quantity:  item.GetItem().GetQuantity(),
+			Currency:  item.GetCost().GetCurrencyCode(),
+			Units:     item.GetCost().GetUnits(),
+			Nanos:     item.GetCost().GetNanos(),
+		})
+	}
+
+	payload := map[string]any{
+		"order_id":             order.GetOrderId(),
+		"user_id":              req.GetUserId(),
+		"email":                req.GetEmail(),
+		"total_currency":       total.GetCurrencyCode(),
+		"total_units":          total.GetUnits(),
+		"total_nanos":          total.GetNanos(),
+		"shipping_tracking_id": order.GetShippingTrackingId(),
+		"shipping_address":     order.GetShippingAddress(),
+		"items":                items,
+		"created_at":           time.Now().UTC().Format(time.RFC3339Nano),
+	}
+
+	event := map[string]any{
+		"records": []map[string]any{
+			{
+				"key":   order.GetOrderId(),
+				"value": payload,
+			},
+		},
+	}
+
+	msgBytes, err := json.Marshal(event)
+	if err != nil {
+		log.Errorf("failed to marshal order event: %v", err)
+		return
+	}
+
+	eventCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := cs.orderEventsPublisher.Publish(eventCtx, msgBytes); err != nil {
+		log.Errorf("failed to publish order event: %v", err)
+		return
+	}
+	log.Infof("published order event for order_id=%q", order.GetOrderId())
 }
 
 type orderPrep struct {

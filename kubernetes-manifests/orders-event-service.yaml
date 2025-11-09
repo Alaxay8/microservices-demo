@@ -1,0 +1,87 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-event-service
+  labels:
+    app: orders-event-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-event-service
+  template:
+    metadata:
+      labels:
+        app: orders-event-service
+    spec:
+      serviceAccountName: orders-event-service
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      imagePullSecrets:
+        - name: ghcr-cred
+      containers:
+        - name: server
+          image: ghcr.io/alaxay8/orders-event-service:v1
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+          env:
+            - name: PORT
+              value: "8080"
+            - name: KAFKA_REST_URL
+              value: "http://kafka-rest:8082"
+            - name: ORDER_EVENTS_TOPIC
+              value: "orders"
+            - name: ORDER_EVENTS_CONSUMER_GROUP
+              value: "orders-event-service"
+            - name: ORDER_EVENTS_POLL_INTERVAL_SEC
+              value: "5"
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-event-service
+  labels:
+    app: orders-event-service
+spec:
+  selector:
+    app: orders-event-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orders-event-service

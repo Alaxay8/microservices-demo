@@ -33,6 +33,8 @@ build:
     context: src/shoppingassistantservice
   - image: shippingservice
     context: src/shippingservice
+  - image: orders-event-service
+    context: src/orders-event-service
   - image: checkoutservice
     context: src/checkoutservice
   - image: paymentservice

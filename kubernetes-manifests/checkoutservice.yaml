@@ -69,6 +69,10 @@ spec:
             value: "currencyservice:7000"
           - name: CART_SERVICE_ADDR
             value: "cartservice:7070"
+          - name: ORDER_EVENTS_REST_URL
+            value: "http://kafka-rest:8082"
+          - name: ORDER_EVENTS_TOPIC
+            value: "orders"
           resources:
             requests:
               cpu: 100m
