@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
         - name: zookeeper
-          image: bitnami/zookeeper:3.9.2
+          image: zookeeper:3.9
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 2181
