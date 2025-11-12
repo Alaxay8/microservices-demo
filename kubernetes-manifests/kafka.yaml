@@ -50,8 +50,6 @@ spec:
               value: "2"
             - name: ZOOKEEPER_SERVER_ID
               value: "1"
-            - name: ZOOKEEPER_SERVERS
-              value: "zookeeper:2888:3888"
           livenessProbe:
             tcpSocket: { port: 2181 }
             initialDelaySeconds: 10
