@@ -54,7 +54,6 @@ var (
 		"TRY": true,
 	}
 
-
 	baseUrl         = ""
 )
 
