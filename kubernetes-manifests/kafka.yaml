@@ -101,14 +101,15 @@ spec:
           ports:
             - containerPort: 9092
           env:
+            - name: KAFKA_PORT
+              value: "9092"
             - name: KAFKA_BROKER_ID
               value: "1"
             - name: KAFKA_ZOOKEEPER_CONNECT
               value: "zookeeper:2181"
-            # слушаем на всех интерфейсах внутри пода
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:9092"
-            # как до нас добраться изнутри кластера
+
             - name: KAFKA_ADVERTISED_LISTENERS
               value: "PLAINTEXT://kafka.shop.svc.cluster.local:9092"
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
@@ -174,6 +175,8 @@ spec:
           ports:
             - containerPort: 8082
           env:
+            - name: KAFKA_REST_PORT
+              value: "8082"
             - name: KAFKA_REST_BOOTSTRAP_SERVERS
               value: "kafka.shop.svc.cluster.local:9092"
             - name: KAFKA_REST_LISTENERS
