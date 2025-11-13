@@ -153,12 +153,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
-          command:
-            - /bin/sh
-            - -c
-            - |-
-              unset PORT
-              exec /etc/confluent/docker/run
+          command: ["bash", "-c", "unset SCHEMA_REGISTRY_PORT; /etc/confluent/docker/run"]
           env:
             - name: PORT
               value: ""
@@ -207,12 +202,7 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8082
-          command:
-            - /bin/sh
-            - -c
-            - |-
-              unset PORT
-              exec /etc/confluent/docker/run
+          command: ["bash", "-c", "unset KAFKA_REST_PORT; /etc/confluent/docker/run"]
           env:
             - name: PORT
               value: ""
