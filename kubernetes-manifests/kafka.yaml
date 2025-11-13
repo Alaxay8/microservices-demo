@@ -154,8 +154,6 @@ spec:
           ports:
             - containerPort: 8081
           env:
-            - name: PORT
-              value: ""
             - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
               value: "PLAINTEXT://kafka.shop.svc.cluster.local:9092"
             - name: SCHEMA_REGISTRY_LISTENERS
@@ -202,8 +200,6 @@ spec:
           ports:
             - containerPort: 8082
           env:
-            - name: PORT
-              value: ""
             - name: KAFKA_REST_HOST_NAME
               value: "kafka-rest"
             - name: KAFKA_REST_LISTENERS
