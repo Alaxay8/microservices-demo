@@ -91,6 +91,8 @@ spec:
           ports:
             - containerPort: 9092
           env:
+            - name: KAFKA_PORT
+              value: ""
             - name: KAFKA_BROKER_ID
               value: "1"
             - name: KAFKA_ZOOKEEPER_CONNECT
@@ -198,6 +200,8 @@ spec:
           ports:
             - containerPort: 8082
           env:
+            - name: KAFKA_REST_PORT
+              value: ""
             - name: KAFKA_REST_HOST_NAME
               value: "kafka-rest"
             - name: KAFKA_REST_LISTENERS
