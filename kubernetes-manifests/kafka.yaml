@@ -112,7 +112,7 @@ spec:
             - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
               value: "1"
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
-              value: "true"
+              value: "false"
 ---
 # Schema Registry
 apiVersion: v1
@@ -215,4 +215,42 @@ spec:
             - name: KAFKA_REST_SCHEMA_REGISTRY_URL
               value: "http://schema-registry:8081"
 ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init-orders-topic
+  namespace: shop
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init-orders-topic
+          image: confluentinc/cp-kafka:7.5.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              echo "Waiting for Kafka...";
 
+              # маленький health-loop вместо тупого sleep
+              for i in {1..30}; do
+                kafka-topics --bootstrap-server kafka:9092 --list >/dev/null 2>&1 && break
+                echo "Kafka is not ready yet, retrying..."
+                sleep 2
+              done
+
+              echo "Creating 'orders' topic (if missing)..."
+
+              kafka-topics \
+                --create \
+                --if-not-exists \
+                --topic orders \
+                --bootstrap-server kafka:9092 \
+                --partitions 3 \
+                --replication-factor 1 \
+                --config cleanup.policy=delete \
+                --config retention.ms=604800000
+
+              echo "Current topics:"
+              kafka-topics --list --bootstrap-server kafka:9092
