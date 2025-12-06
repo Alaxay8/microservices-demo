@@ -48,8 +48,6 @@ spec:
               value: "2000"
             - name: ZOOKEEPER_SYNC_LIMIT
               value: "2"
-            - name: ZOOKEEPER_SERVER_ID
-              value: "1"
 ---
 apiVersion: v1
 kind: Service
@@ -90,6 +88,8 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9092
+          # главный фикс: убираем PORT/KAFKA_PORT, которые подсовывает Kubernetes
+          command: ["bash", "-c", "unset PORT; unset KAFKA_PORT; /etc/confluent/docker/run"]
           env:
             - name: KAFKA_BROKER_ID
               value: "1"
@@ -98,7 +98,7 @@ spec:
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:9092"
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: "PLAINTEXT://kafka:9092"
+              value: "PLAINTEXT://kafka.shop.svc.cluster.local:9092"
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
               value: "PLAINTEXT:PLAINTEXT"
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
@@ -218,6 +218,7 @@ metadata:
   name: kafka-init-orders-topic
   namespace: shop
 spec:
+  backoffLimit: 5
   template:
     spec:
       restartPolicy: OnFailure
@@ -246,4 +247,3 @@ spec:
                 --config retention.ms=604800000
               echo "Current topics:"
               kafka-topics --list --bootstrap-server kafka:9092
-
